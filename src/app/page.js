@@ -1,103 +1,261 @@
-import Image from "next/image";
+"use client";
+
+import gsap from "gsap";
+import { useGSAP } from "@gsap/react";
+import { pauseImg, playImg, replayImg, rightImg, watchImg } from "./utils";
+import { hightlightsSlides } from "./constants";
+import { useEffect, useRef, useState } from "react";
+import { ScrollTrigger } from "gsap/all";
+gsap.registerPlugin(ScrollTrigger);
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.js
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [video, setVideo] = useState({
+    videoId: 0,
+    isLastVideo: false,
+    isPlaying: false,
+    startPlay: false,
+  });
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+  const { videoId, isLastVideo, isPlaying, startPlay } = video;
+
+  const [replay, setReplay] = useState(false);
+
+  const containerRef = useRef(null);
+  const videoRef = useRef([]);
+  const videoDivRef = useRef([]);
+  const videoSpanRef = useRef([]);
+
+  useGSAP(() => {
+    gsap.to("#slider", {
+      xPercent: -100 * video.videoId,
+      x: -40 * video.videoId,
+      duration: 2,
+      ease: "power2.inOut",
+    });
+    gsap.to("#video", {
+      scrollTrigger: {
+        trigger: "#video",
+        toggleActions: "restart none none none",
+      },
+      onComplete: () => {
+        setVideo((pre) => ({
+          ...pre,
+          startPlay: true,
+          isPlaying: true,
+        }));
+      },
+    });
+  }, [videoId]);
+
+  useEffect(() => {
+    const currentVideo = videoRef.current[videoId];
+    if (isLastVideo) {
+      console.log("");
+    } else if (currentVideo) {
+      currentVideo.currentTime = 0;
+
+      if (replay) {
+        if (videoId === 0) {
+          const timeout = setTimeout(() => {
+            currentVideo.play();
+            setReplay(false);
+          }, 1500);
+          return () => clearTimeout(timeout);
+        }
+      } else {
+        if (videoId === 0) {
+          currentVideo.play();
+        } else {
+          const timeout = setTimeout(() => {
+            currentVideo.play();
+          }, 1500);
+          return () => clearTimeout(timeout);
+        }
+      }
+    }
+  }, [videoId]);
+
+  useEffect(() => {
+    if (!isPlaying) return;
+    let currentProgress = 0;
+    let span = videoSpanRef.current;
+
+    if (span[videoId]) {
+      let anim = gsap.to(span[videoId], {
+        onUpdate: () => {
+          const progress = Math.ceil(anim.progress() * 100);
+
+          if (progress != currentProgress) {
+            currentProgress = progress;
+
+            gsap.to(videoDivRef.current[videoId], {
+              width:
+                window.innerWidth < 760
+                  ? "10vw"
+                  : window.innerWidth < 1200
+                  ? "10vw"
+                  : "4vw",
+            });
+
+            gsap.to(span[videoId], {
+              width: `${currentProgress}%`,
+              backgroundColor: "white",
+            });
+          }
+        },
+        onComplete: () => {
+          if (!isPlaying) return;
+          gsap.to(videoDivRef.current[videoId], {
+            width: "12px",
+          });
+          gsap.to(span[videoId], {
+            backgroundColor: "#afafaf",
+          });
+        },
+      });
+
+      if (videoId == 0) {
+        anim.restart();
+      }
+
+      const animUpdate = () => {
+        anim.progress(
+          videoRef.current[videoId].currentTime /
+            hightlightsSlides[videoId].videoDuration
+        );
+      };
+
+      if (isPlaying) {
+        gsap.ticker.add(animUpdate);
+      } else {
+        gsap.ticker.remove(animUpdate);
+      }
+    }
+  }, [videoId, startPlay]);
+
+  const handleVideo = () => {
+    const currentVideo = videoRef.current[video.videoId];
+    if (currentVideo) {
+      if (video.isLastVideo) {
+        setVideo((prev) => ({
+          ...prev,
+          videoId: 0,
+          isLastVideo: false,
+          isPlaying: true,
+        }));
+        setReplay(true);
+      } else {
+        if (!video.isPlaying) {
+          currentVideo.play();
+          setVideo((prev) => ({ ...prev, isPlaying: true }));
+        } else {
+          currentVideo.pause();
+          setVideo((prev) => ({ ...prev, isPlaying: false }));
+        }
+      }
+    }
+  };
+
+  return (
+    <>
+      <div className="flex justify-center items-center min-h-screen w-full bg-zinc overflow-hidden">
+        <div className="flex justify-center items-center flex-col w-9/10 md:w-9/16">
+          <div className="flex md:mb-5 mb-3 ml-4 md:ml-0 justify-center items-center flex-col md:flex-row w-full">
+            <h1 className="font-bold text-gray-200  text-2xl md:text-3xl w-full flex justify-start items-center">
+              Get the highlights
+            </h1>
+            <div className="flex w-full justify-start md:mt-0 mt-3 md:justify-end items-center text-md md:text-xl gap-8 text-blue">
+              <p className="flex items-center gap-2">
+                Watch the film
+                <img src={watchImg} alt="watch" className="size-5" />
+              </p>
+              <p className="flex items-center gap-2">
+                Watch the event
+                <img src={rightImg} alt="right" className="size-3" />
+              </p>
+            </div>
+          </div>
+          <div
+            ref={containerRef}
+            className="flex justify-start items-center gap-10"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+            {hightlightsSlides.map((list, i) => (
+              <div
+                key={list.id}
+                id="slider"
+                className=" flex justify-center shadow-md items-center w-full shrink-0 bg-black rounded-3xl overflow-hidden"
+              >
+                <video
+                  id="video"
+                  className="aspect-video w-full object-cover"
+                  playsInline
+                  muted
+                  ref={(el) => (videoRef.current[i] = el)}
+                  onEnded={() =>
+                    setVideo((prev) => {
+                      const nextId = prev.videoId + 1;
+                      const isLast = nextId == hightlightsSlides.length;
+                      return {
+                        videoId: isLast ? prev.videoId : nextId,
+                        isLastVideo: isLast,
+                        isPlaying: false,
+                      };
+                    })
+                  }
+                  onPlay={() =>
+                    setVideo((prev) => ({ ...prev, isPlaying: true }))
+                  }
+                >
+                  <source src={list.video} type="video/mp4" />
+                </video>
+                <div className="absolute top-2 md:top-12 left-[5%] z-10">
+                  {list.textLists.map((text, i) => (
+                    <p key={i} className="md:text-2xl text-md font-medium">
+                      {text}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="relative flex justify-center items-center flex-row mt-5 gap-4">
+            <div className="flex justify-center items-center flex-row py-5 px-7 shadow-md bg-gray-300 rounded-full">
+              {videoRef.current.map((_, i) => (
+                <span
+                  key={i}
+                  ref={(el) => (videoDivRef.current[i] = el)}
+                  className="mx-2 size-3 md:size-3 bg-gray-200 overflow-hidden rounded-full relative cursor-pointer"
+                >
+                  <span
+                    className="absolute h-full w-full rounded-full"
+                    ref={(el) => (videoSpanRef.current[i] = el)}
+                  />
+                </span>
+              ))}
+            </div>
+            <button
+              onClick={() => handleVideo()}
+              className="cursor-pointer bg-gray-300 flex justify-center items-center rounded-full p-3 backdrop-blur"
+            >
+              <img
+                src={
+                  video.isLastVideo
+                    ? replayImg
+                    : video.isPlaying
+                    ? pauseImg
+                    : playImg
+                }
+                className={
+                  !video.isLastVideo && !video.isPlaying
+                    ? "translate-x-[1.5px] md:size-7 size-6"
+                    : "md:size-7 size-6"
+                }
+                alt="pause"
+              />
+            </button>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+      </div>
+    </>
   );
 }
